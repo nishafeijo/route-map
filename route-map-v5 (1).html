@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transatlantic Route Map</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: linear-gradient(135deg, #0a1628 0%, #1a2744 50%, #0d1a2d 100%);
+      min-height: 100vh;
+      padding: 24px;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    .container { max-width: 1100px; margin: 0 auto; }
+    
+    .header { margin-bottom: 24px; text-align: center; }
+    
+    .header h1 {
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin: 0 0 8px 0;
+      font-family: 'Space Mono', monospace;
+    }
+    
+    .header p {
+      color: rgba(255,255,255,0.5);
+      font-size: 13px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+    }
+    
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    
+    .filter-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      font-family: 'DM Sans', sans-serif;
+    }
+    
+    .filter-btn:hover { background: rgba(255,255,255,0.2); }
+    .filter-btn.active { background: rgba(255,255,255,0.95); color: #0a1628; }
+    
+    .map-container {
+      background: linear-gradient(180deg, #0a1a2e 0%, #071422 100%);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .zoom-controls {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 10;
+    }
+    
+    .zoom-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    
+    .zoom-btn:hover { background: rgba(255,255,255,0.25); }
+    
+    .zoom-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      color: rgba(255,255,255,0.4);
+      font-size: 11px;
+      z-index: 10;
+    }
+    
+    #map { width: 100%; height: auto; display: block; cursor: grab; }
+    #map:active { cursor: grabbing; }
+    
+    .land {
+      fill: #1e3d4d;
+      stroke: #2a5a6a;
+      stroke-width: 0.5;
+    }
+    
+    .route {
+      fill: none;
+      stroke-linecap: round;
+      cursor: pointer;
+      transition: stroke-width 0.2s, stroke-opacity 0.2s;
+    }
+    
+    .route:hover {
+      stroke-width: 3 !important;
+      stroke-opacity: 1 !important;
+    }
+    
+    .city-dot {
+      fill: #ffffff;
+      stroke: #0a1628;
+      stroke-width: 1.5;
+    }
+    
+    .hub-dot {
+      stroke: #ffffff;
+      stroke-width: 2;
+    }
+    
+    .city-label {
+      fill: #ffffff;
+      font-size: 9px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    
+    .hub-label {
+      fill: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 20px;
+    }
+    
+    .stat-box {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      color: #fff;
+      font-size: 28px;
+      font-weight: 700;
+      font-family: 'Space Mono', monospace;
+    }
+    
+    .stat-label {
+      color: rgba(255,255,255,0.5);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    
+    .tooltip {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      display: none;
+      z-index: 100;
+    }
+    
+    .tooltip.visible { display: block; }
+    
+    .loading {
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      padding: 100px 20px;
+      font-size: 14px;
+    }
+    
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      .header h1 { font-size: 18px; }
+      .filter-btn { padding: 6px 12px; font-size: 10px; }
+      .stats { gap: 8px; }
+      .stat-value { font-size: 20px; }
+      .stat-label { font-size: 9px; }
+      .zoom-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Transatlantic Route Network</h1>
+      <p>Direct Service • US to Europe</p>
+    </div>
+    
+    <div class="filters" id="filters"></div>
+    
+    <div class="map-container">
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in">+</button>
+        <button class="zoom-btn" id="zoom-out">−</button>
+        <button class="zoom-btn" id="zoom-reset" style="font-size: 12px;">⟲</button>
+      </div>
+      <div class="zoom-hint">Scroll to zoom • Drag to pan</div>
+      <div id="map"><div class="loading">Loading map...</div></div>
+    </div>
+    
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-value">11</div>
+        <div class="stat-label">Airlines</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">11</div>
+        <div class="stat-label">European Hubs</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">24</div>
+        <div class="stat-label">US Gateways</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    var usCoordinates = {
+      'Atlanta': [-84.4281, 33.6407],
+      'Austin': [-97.6699, 30.1975],
+      'Boston': [-71.0052, 42.3656],
+      'Charlotte': [-80.9431, 35.214],
+      'Chicago': [-87.9048, 41.9742],
+      'Dallas': [-96.8570, 32.8998],
+      'Denver': [-104.6737, 39.8561],
+      'Detroit': [-83.3534, 42.2124],
+      'Houston': [-95.3414, 29.9902],
+      'Las Vegas': [-115.1523, 36.0840],
+      'Los Angeles': [-118.4085, 33.9416],
+      'Miami': [-80.2906, 25.7959],
+      'Minneapolis': [-93.2218, 44.8831],
+      'New York': [-73.7781, 40.6413],
+      'Orlando': [-81.3089, 28.4312],
+      'Philadelphia': [-75.2411, 39.8729],
+      'Phoenix': [-112.0116, 33.4373],
+      'Raleigh-Durham': [-78.7870, 35.8801],
+      'Salt Lake City': [-111.9791, 40.7899],
+      'San Diego': [-117.1896, 32.7338],
+      'San Francisco': [-122.3750, 37.6213],
+      'Seattle': [-122.3088, 47.4502],
+      'St. Louis': [-90.3700, 38.7487],
+      'Washington D.C.': [-77.4565, 38.9531],
+    };
+
+    var europeCoordinates = {
+      'Frankfurt': [8.5706, 50.0379],
+      'Munich': [11.7861, 48.3537],
+      'Paris': [2.5479, 49.0097],
+      'Amsterdam': [4.7639, 52.3105],
+      'Lisbon': [-9.1359, 38.7756],
+      'Zurich': [8.5492, 47.4647],
+      'Madrid': [-3.5673, 40.4983],
+      'Vienna': [16.5697, 48.1103],
+      'Rome': [12.2389, 41.8003],
+      'Brussels': [4.4844, 50.9010],
+      'Warsaw': [20.9679, 52.1657],
+    };
+
+    var airlines = {
+      'Lufthansa': { color: '#FFD700', hub: 'Frankfurt', routes: ['Atlanta', 'Austin', 'Boston', 'Charlotte', 'Chicago', 'Dallas', 'Denver', 'Detroit', 'Houston', 'Los Angeles', 'Miami', 'Minneapolis', 'New York', 'Orlando', 'Philadelphia', 'Raleigh-Durham', 'San Diego', 'San Francisco', 'Seattle', 'St. Louis', 'Washington D.C.'] },
+      'Lufthansa MUC': { color: '#FFD700', hub: 'Munich', routes: ['Boston', 'Charlotte', 'Chicago', 'Denver', 'Los Angeles', 'Miami', 'New York', 'San Diego', 'San Francisco', 'Washington D.C.'] },
+      'Air France': { color: '#5B8DEF', hub: 'Paris', routes: ['Atlanta', 'Boston', 'Chicago', 'Dallas', 'Denver', 'Detroit', 'Houston', 'Los Angeles', 'Miami', 'Minneapolis', 'New York', 'Phoenix', 'Raleigh-Durham', 'San Francisco', 'Seattle', 'Washington D.C.'] },
+      'KLM': { color: '#00BFFF', hub: 'Amsterdam', routes: ['Atlanta', 'Austin', 'Boston', 'Chicago', 'Houston', 'Las Vegas', 'Los Angeles', 'Miami', 'Minneapolis', 'New York', 'Salt Lake City', 'San Francisco', 'Washington D.C.'] },
+      'TAP Portugal': { color: '#00E676', hub: 'Lisbon', routes: ['Boston', 'Chicago', 'Miami', 'New York', 'San Francisco', 'Washington D.C.'] },
+      'Swiss': { color: '#FF5252', hub: 'Zurich', routes: ['Boston', 'Chicago', 'Los Angeles', 'Miami', 'New York', 'San Francisco', 'Washington D.C.'] },
+      'Iberia': { color: '#FF6B6B', hub: 'Madrid', routes: ['Boston', 'Chicago', 'Dallas', 'Los Angeles', 'Miami', 'New York'] },
+      'Austrian': { color: '#FF8A80', hub: 'Vienna', routes: ['Chicago', 'Los Angeles', 'New York', 'Washington D.C.'] },
+      'ITA Airways': { color: '#26A69A', hub: 'Rome', routes: ['Boston', 'Chicago', 'Los Angeles', 'Miami', 'New York', 'San Francisco', 'Washington D.C.'] },
+      'Brussels Airlines': { color: '#7C8EFF', hub: 'Brussels', routes: ['New York', 'Washington D.C.'] },
+      'LOT Polish': { color: '#B388FF', hub: 'Warsaw', routes: ['Chicago', 'Los Angeles', 'Miami', 'New York'] },
+    };
+
+    var width = 960;
+    var height = 500;
+    var selectedAirline = null;
+    var svg, projection, pathGenerator, zoomGroup, zoom;
+
+    // Build all routes
+    function buildRoutes() {
+      var routes = [];
+      Object.keys(airlines).forEach(function(name) {
+        var data = airlines[name];
+        data.routes.forEach(function(city) {
+          var start = usCoordinates[city];
+          var end = europeCoordinates[data.hub];
+          if (start && end) {
+            routes.push({
+              airline: name,
+              displayName: name.replace(' MUC', ''),
+              color: data.color,
+              from: city,
+              to: data.hub,
+              coords: [start, end]
+            });
+          }
+        });
+      });
+      return routes;
+    }
+
+    var allRoutes = buildRoutes();
+
+    // Initialize map
+    function initMap(world) {
+      var mapDiv = document.getElementById('map');
+      mapDiv.innerHTML = '';
+
+      svg = d3.select('#map')
+        .append('svg')
+        .attr('viewBox', '0 0 ' + width + ' ' + height)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
+
+      // Projection centered on Atlantic
+      projection = d3.geoNaturalEarth1()
+        .center([-30, 45])
+        .scale(350)
+        .translate([width / 2, height / 2]);
+
+      pathGenerator = d3.geoPath().projection(projection);
+
+      // Create zoom behavior
+      zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on('zoom', function(event) {
+          zoomGroup.attr('transform', event.transform);
+        });
+
+      svg.call(zoom);
+
+      // Create a group for all zoomable content
+      zoomGroup = svg.append('g').attr('class', 'zoom-group');
+
+      // Draw land
+      var countries = topojson.feature(world, world.objects.countries);
+      
+      zoomGroup.append('g')
+        .attr('class', 'land-group')
+        .selectAll('path')
+        .data(countries.features)
+        .enter()
+        .append('path')
+        .attr('class', 'land')
+        .attr('d', pathGenerator);
+
+      // Add routes, cities
+      zoomGroup.append('g').attr('class', 'routes-group');
+      zoomGroup.append('g').attr('class', 'cities-group');
+
+      // Zoom button controls
+      d3.select('#zoom-in').on('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+      });
+
+      d3.select('#zoom-out').on('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 0.67);
+      });
+
+      d3.select('#zoom-reset').on('click', function() {
+        svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+      });
+
+      render();
+    }
+
+    function render() {
+      var tooltip = document.getElementById('tooltip');
+      
+      var visibleRoutes = allRoutes.filter(function(r) {
+        return !selectedAirline || r.displayName === selectedAirline;
+      });
+
+      var visibleUSCities = {};
+      var visibleEUCities = {};
+      visibleRoutes.forEach(function(r) {
+        visibleUSCities[r.from] = true;
+        visibleEUCities[r.to] = true;
+      });
+
+      // Routes
+      var routesGroup = zoomGroup.select('.routes-group');
+      routesGroup.selectAll('*').remove();
+
+      visibleRoutes.forEach(function(route) {
+        var lineGenerator = d3.geoPath()
+          .projection(projection)
+          .pointRadius(0);
+
+        var lineFeature = {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: route.coords
+          }
+        };
+
+        routesGroup.append('path')
+          .datum(lineFeature)
+          .attr('class', 'route')
+          .attr('d', lineGenerator)
+          .attr('stroke', route.color)
+          .attr('stroke-width', 1.5)
+          .attr('stroke-opacity', selectedAirline ? 0.9 : 0.5)
+          .on('mouseenter', function() {
+            d3.select(this)
+              .attr('stroke-width', 3)
+              .attr('stroke-opacity', 1);
+            tooltip.textContent = route.from + ' → ' + route.to + ' • ' + route.displayName;
+            tooltip.className = 'tooltip visible';
+          })
+          .on('mouseleave', function() {
+            d3.select(this)
+              .attr('stroke-width', 1.5)
+              .attr('stroke-opacity', selectedAirline ? 0.9 : 0.5);
+            tooltip.className = 'tooltip';
+          });
+      });
+
+      // Cities
+      var citiesGroup = zoomGroup.select('.cities-group');
+      citiesGroup.selectAll('*').remove();
+
+      // US cities
+      Object.keys(usCoordinates).forEach(function(city) {
+        if (selectedAirline && !visibleUSCities[city]) return;
+        var coords = usCoordinates[city];
+        var pos = projection(coords);
+
+        citiesGroup.append('circle')
+          .attr('class', 'city-dot')
+          .attr('cx', pos[0])
+          .attr('cy', pos[1])
+          .attr('r', 5);
+
+        citiesGroup.append('text')
+          .attr('class', 'city-label')
+          .attr('x', pos[0])
+          .attr('y', pos[1] - 9)
+          .text(city);
+      });
+
+      // European hubs
+      Object.keys(europeCoordinates).forEach(function(city) {
+        if (selectedAirline && !visibleEUCities[city]) return;
+        var coords = europeCoordinates[city];
+        var pos = projection(coords);
+
+        var hubColor = '#ffffff';
+        Object.keys(airlines).forEach(function(name) {
+          if (airlines[name].hub === city) {
+            hubColor = airlines[name].color;
+          }
+        });
+
+        citiesGroup.append('circle')
+          .attr('class', 'hub-dot')
+          .attr('cx', pos[0])
+          .attr('cy', pos[1])
+          .attr('r', 8)
+          .attr('fill', hubColor);
+
+        citiesGroup.append('text')
+          .attr('class', 'hub-label')
+          .attr('x', pos[0])
+          .attr('y', pos[1] - 14)
+          .text(city);
+      });
+    }
+
+    function buildFilters() {
+      var filtersEl = document.getElementById('filters');
+      var seen = {};
+      var uniqueAirlines = [];
+      
+      Object.keys(airlines).forEach(function(name) {
+        var displayName = name.replace(' MUC', '');
+        if (!seen[displayName]) {
+          seen[displayName] = true;
+          uniqueAirlines.push(displayName);
+        }
+      });
+
+      var html = '<button class="filter-btn active" data-airline="">All Airlines</button>';
+      uniqueAirlines.forEach(function(airline) {
+        var airlineData = airlines[airline] || airlines[airline + ' MUC'];
+        var color = airlineData ? airlineData.color : '#ffffff';
+        html += '<button class="filter-btn" data-airline="' + airline + '" style="color:' + color + '">' + airline + '</button>';
+      });
+      
+      filtersEl.innerHTML = html;
+
+      filtersEl.querySelectorAll('.filter-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          // Reset all buttons to their original colors
+          filtersEl.querySelectorAll('.filter-btn').forEach(function(b) {
+            b.className = 'filter-btn';
+            b.style.background = '';
+            var btnAirline = b.getAttribute('data-airline');
+            if (btnAirline) {
+              var btnData = airlines[btnAirline] || airlines[btnAirline + ' MUC'];
+              b.style.color = btnData ? btnData.color : '';
+            } else {
+              b.style.color = '';
+            }
+          });
+          btn.className = 'filter-btn active';
+          
+          var airline = btn.getAttribute('data-airline');
+          selectedAirline = airline || null;
+          
+          if (selectedAirline) {
+            var airlineData = airlines[selectedAirline] || airlines[selectedAirline + ' MUC'];
+            if (airlineData) {
+              btn.style.background = airlineData.color;
+              btn.style.color = '#000';
+            }
+          }
+          
+          render();
+        });
+      });
+    }
+
+    // Load world data and initialize
+    buildFilters();
+    
+    d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+      .then(function(world) {
+        initMap(world);
+      })
+      .catch(function(error) {
+        console.error('Error loading map:', error);
+        document.getElementById('map').innerHTML = '<div class="loading">Error loading map data. Please refresh.</div>';
+      });
+  </script>
+</body>
+</html>
