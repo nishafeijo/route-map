@@ -69,32 +69,6 @@
       box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
       position: relative;
       overflow: hidden;
-      /* Smooth transition when entering fullscreen */
-      transition: width 0.3s, height 0.3s; 
-    }
-
-    /* FULLSCREEN STYLING LOGIC */
-    .map-container:fullscreen {
-      width: 100vw;
-      height: 100vh;
-      border-radius: 0;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0a1a2e; /* Solid background for fullscreen */
-    }
-
-    /* Webkit support for Safari/Chrome older versions */
-    .map-container:-webkit-full-screen {
-      width: 100%;
-      height: 100%;
-      border-radius: 0;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0a1a2e;
     }
     
     .zoom-controls {
@@ -134,17 +108,6 @@
     }
     
     #map { width: 100%; height: auto; display: block; cursor: grab; }
-    
-    /* Ensure map takes full height in fullscreen */
-    .map-container:fullscreen #map {
-      height: 100%;
-      width: 100%;
-    }
-    .map-container:fullscreen svg {
-      height: 100%;
-      width: 100%;
-    }
-
     #map:active { cursor: grabbing; }
     
     .land {
@@ -235,7 +198,7 @@
       font-weight: 500;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       display: none;
-      z-index: 1000; /* Increased z-index so it shows over fullscreen */
+      z-index: 100;
     }
     
     .tooltip.visible { display: block; }
@@ -267,12 +230,11 @@
     
     <div class="filters" id="filters"></div>
     
-    <div class="map-container" id="map-container-el">
+    <div class="map-container">
       <div class="zoom-controls">
-        <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
-        <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
-        <button class="zoom-btn" id="zoom-reset" style="font-size: 12px;" title="Reset Zoom">⟲</button>
-        <button class="zoom-btn" id="toggle-fullscreen" title="Full Screen" style="margin-top: 8px;">⛶</button>
+        <button class="zoom-btn" id="zoom-in">+</button>
+        <button class="zoom-btn" id="zoom-out">−</button>
+        <button class="zoom-btn" id="zoom-reset" style="font-size: 12px;">⟲</button>
       </div>
       <div class="zoom-hint">Scroll to zoom • Drag to pan • Click cities to filter</div>
       <div id="map"><div class="loading">Loading map...</div></div>
@@ -451,33 +413,6 @@
       d3.select('#zoom-reset').on('click', function() {
         svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
       });
-
-      // ---- FULLSCREEN LOGIC START ----
-      var mapContainer = document.getElementById('map-container-el');
-      var fsButton = document.getElementById('toggle-fullscreen');
-
-      fsButton.addEventListener('click', function() {
-        if (!document.fullscreenElement) {
-          // ENTER Fullscreen
-          if (mapContainer.requestFullscreen) {
-            mapContainer.requestFullscreen();
-          } else if (mapContainer.webkitRequestFullscreen) { /* Safari */
-            mapContainer.webkitRequestFullscreen();
-          } else if (mapContainer.msRequestFullscreen) { /* IE11 */
-            mapContainer.msRequestFullscreen();
-          }
-        } else {
-          // EXIT Fullscreen
-          if (document.exitFullscreen) {
-            document.exitFullscreen();
-          } else if (document.webkitExitFullscreen) { /* Safari */
-            document.webkitExitFullscreen();
-          } else if (document.msExitFullscreen) { /* IE11 */
-            document.msExitFullscreen();
-          }
-        }
-      });
-      // ---- FULLSCREEN LOGIC END ----
 
       render();
     }
