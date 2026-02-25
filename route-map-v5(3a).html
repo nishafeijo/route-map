@@ -44,6 +44,14 @@
       gap: 8px;
       justify-content: center;
       margin-bottom: 20px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .filters .filter-btn {
+      flex: 0 0 calc(16.666% - 8px);
+      min-width: 120px;
     }
     
     .filter-btn {
@@ -284,7 +292,7 @@
         <div class="stat-label">Airlines</div>
       </div>
       <div class="stat-box">
-        <div class="stat-value">11</div>
+        <div class="stat-value">12</div>
         <div class="stat-label">European Hubs</div>
       </div>
       <div class="stat-box">
@@ -336,6 +344,7 @@
       'Rome': [12.2389, 41.8003],
       'Brussels': [4.4844, 50.9010],
       'Warsaw': [20.9679, 52.1657],
+      'Istanbul': [28.9784, 41.2619],
     };
 
     var airlines = {
@@ -350,6 +359,7 @@
       'ITA Airways': { color: '#26A69A', hub: 'Rome', routes: ['Boston', 'Chicago', 'Los Angeles', 'Miami', 'New York', 'San Francisco', 'Washington D.C.'] },
       'Brussels Airlines': { color: '#7C8EFF', hub: 'Brussels', routes: ['New York', 'Washington D.C.'] },
       'LOT Polish': { color: '#B388FF', hub: 'Warsaw', routes: ['Chicago', 'Los Angeles', 'Miami', 'New York'] },
+      'Turkish Airlines': { color: '#CE1126', hub: 'Istanbul', routes: ['Boston', 'Chicago', 'Houston', 'Los Angeles', 'Miami', 'New York', 'San Francisco', 'Washington D.C.'] },
     };
 
     var width = 960;
@@ -646,6 +656,10 @@
           uniqueAirlines.push(displayName);
         }
       });
+      
+      // Set specific order
+      var airlineOrder = ['Air France', 'Austrian', 'Brussels Airlines', 'Iberia', 'ITA Airways', 'KLM', 'LOT Polish', 'Lufthansa', 'Swiss', 'TAP Portugal', 'Turkish Airlines'];
+      uniqueAirlines = airlineOrder;
 
       var html = '<button class="filter-btn active" data-airline="">All Airlines</button>';
       uniqueAirlines.forEach(function(airline) {
